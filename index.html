@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大口径望远镜 · 自适应光学校准控制台</title>
+<style>
+:root{
+  --bg:#070b14; --panel:#0d1526; --panel2:#111d34; --line:#1e2f4d;
+  --txt:#dbe6f5; --dim:#7f93b2; --accent:#4ea8ff; --good:#34d399; --warn:#fbbf24; --bad:#f87171;
+  --c1:#4ea8ff; --c2:#34d399; --c3:#c084fc;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:radial-gradient(1200px 700px at 70% -10%,#0f1d38 0%,var(--bg) 60%);color:var(--txt);
+  font:13px/1.45 -apple-system,"PingFang SC","Microsoft YaHei",Segoe UI,sans-serif;overflow:hidden}
+.app{display:grid;grid-template-columns:250px 1fr 360px;grid-template-rows:52px 1fr 230px;
+  grid-template-areas:"top top top" "left main right" "bottom bottom right";height:100vh;gap:1px;background:var(--line)}
+.panel{background:var(--panel);padding:10px 12px;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.panelscroll{overflow-y:auto}
+h2{font-size:12px;color:var(--dim);font-weight:600;letter-spacing:2px;margin-bottom:8px;text-transform:uppercase}
+h3{font-size:12px;color:var(--dim);font-weight:600;margin:8px 0 6px}
+/* top bar */
+.topbar{grid-area:top;background:linear-gradient(90deg,#0a1222,#10203c);display:flex;align-items:center;
+  gap:18px;padding:0 16px;border-bottom:1px solid var(--line)}
+.logo{font-weight:700;letter-spacing:1px;font-size:15px}
+.logo span{color:var(--accent)}
+.tstat{display:flex;gap:16px;font-size:12px;color:var(--dim)}
+.tstat b{color:var(--txt);font-variant-numeric:tabular-nums}
+.spacer{flex:1}
+.btn{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:6px;
+  padding:6px 12px;font-size:12px;cursor:pointer;transition:.15s;white-space:nowrap}
+.btn:hover{border-color:var(--accent);color:#fff}
+.btn.primary{background:#123a63;border-color:#2b6cb0}
+.btn.danger{border-color:#7f2d3a;color:#fca5a5}
+.btn.sm{padding:3px 8px;font-size:11px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+select,input[type=range]{accent-color:var(--accent)}
+select{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:5px;padding:4px 6px;font-size:12px}
+/* left */
+.left{grid-area:left}.right{grid-area:right;overflow-y:auto}.main{grid-area:main}.bottom{grid-area:bottom;flex-direction:row}
+.field{margin-bottom:10px}
+.field label{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px}
+.field label b{color:var(--txt);font-weight:600}
+input[type=range]{width:100%}
+.stars{display:flex;flex-direction:column;gap:6px}
+.star{border:1px solid var(--line);border-radius:7px;padding:7px 9px;cursor:pointer;background:var(--panel2);transition:.15s}
+.star:hover{border-color:#34517e}
+.star.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.star .sn{font-weight:600;font-size:12px;display:flex;justify-content:space-between}
+.star .sd{font-size:10.5px;color:var(--dim);margin-top:2px}
+.tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:8px;border:1px solid var(--line);color:var(--dim)}
+.tag.alt{color:#9ec5ff;border-color:#2b4a73}
+/* main viewer */
+.main{padding:8px 10px;gap:8px}
+.vtabs{display:flex;gap:6px;align-items:center}
+.vtab{font-size:11px;padding:4px 10px;border-radius:5px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;color:var(--dim)}
+.vtab.active{color:#fff;border-color:var(--accent);background:#153156}
+.viewwrap{position:relative;flex:1;display:flex;min-height:0;border:1px solid var(--line);border-radius:8px;background:#05080f;overflow:hidden}
+.bigcanvas{flex:1;min-height:0}
+.voverlay{position:absolute;left:10px;top:8px;pointer-events:none;font-size:11px;color:var(--dim);text-shadow:0 1px 3px #000}
+.voverlay b{color:var(--txt)}
+.vlegend{position:absolute;right:10px;bottom:8px;font-size:10px;color:var(--dim);display:flex;gap:10px;align-items:center;text-shadow:0 1px 3px #000}
+.swatch{display:inline-block;width:11px;height:11px;border-radius:2px;vertical-align:-1px;margin-right:3px}
+.vnote{position:absolute;left:50%;top:10px;transform:translateX(-50%);font-size:11.5px;padding:4px 12px;border-radius:14px;
+  background:rgba(15,28,52,.92);border:1px solid var(--line);color:var(--txt);opacity:0;transition:.25s;pointer-events:none;text-align:center}
+.vnote.show{opacity:1}
+.vnote.good{border-color:#1c6b4f;color:#a7f3d0}.vnote.bad{border-color:#7f2d3a;color:#fecaca}
+/* metrics under viewer */
+.metricrow{display:flex;gap:8px}
+.metric{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 10px}
+.metric .ml{font-size:10.5px;color:var(--dim)}
+.metric .mv{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:1px}
+.metric .ms{font-size:10.5px;color:var(--dim)}
+.good{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+/* lanes */
+.lanes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.lane{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px;position:relative;display:flex;flex-direction:column;gap:5px;min-height:0}
+.lane.sel{box-shadow:0 0 0 1.5px var(--lc) inset}
+.lane .lh{display:flex;align-items:center;gap:6px;cursor:pointer}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--lc);box-shadow:0 0 8px var(--lc);flex:none}
+.lname{font-weight:600;font-size:12px}
+.lstate{margin-left:auto;font-size:10px;padding:1px 7px;border-radius:9px;border:1px solid var(--line);color:var(--dim)}
+.lstate.LOCK{color:var(--good);border-color:#1c6b4f}
+.lstate.HOLD,.lstate.REACQ{color:var(--warn);border-color:#8a6a23}
+.lstate.ISO,.lstate.WAIT,.lstate.FALLBACK{color:var(--bad);border-color:#7f2d3a}
+.thumbwrap{position:relative;border:1px solid var(--line);border-radius:5px;background:#05080f;height:104px;overflow:hidden}
+.thumbwrap canvas{width:100%;height:100%;display:block}
+.trade{font-size:10.5px;border-radius:5px;padding:3px 6px;display:none}
+.trade.show{display:block}
+.trade.bad{background:rgba(127,45,58,.22);border:1px solid #7f2d3a;color:#fecaca}
+.trade.good{background:rgba(28,107,79,.18);border:1px solid #1c6b4f;color:#a7f3d0}
+.lnums{display:flex;gap:4px;font-variant-numeric:tabular-nums}
+.lnums div{flex:1;background:#0a1322;border-radius:5px;padding:3px 5px;text-align:center}
+.lnums .k{font-size:9px;color:var(--dim)}.lnums .v{font-size:12px;font-weight:600}
+.lbtnrow{display:flex;gap:4px}
+.lbtnrow .btn{flex:1;text-align:center}
+/* right column */
+.rcard{border:1px solid var(--line);border-radius:8px;padding:9px 10px;margin-bottom:9px;background:var(--panel2)}
+.rcard h3{margin-top:0;display:flex;justify-content:space-between;align-items:center}
+.faultgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.hist{font-size:11px;overflow-y:auto;max-height:100%;min-height:0}
+.hitem{border-left:2px solid var(--line);padding:3px 0 5px 8px;margin-bottom:2px;position:relative}
+.hitem .ht{font-variant-numeric:tabular-nums;color:var(--dim);font-size:10px}
+.hitem .hc{font-size:11.5px}
+.hitem.fault{border-left-color:var(--bad)}.hitem.user{border-left-color:var(--accent)}
+.hitem.good{border-left-color:var(--good)}.hitem.sys{border-left-color:var(--warn)}
+.hchip{font-size:9px;color:var(--dim);margin-right:5px}
+.hfilter{display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap}
+.hfilter .vtab{padding:2px 8px;font-size:10px}
+/* bottom */
+.bpane{flex:1;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--line);padding:6px 10px}
+.bpane:last-child{border-right:none}
+.bpane canvas{flex:1;min-height:0}
+#chartWrap{position:relative;flex:1;min-height:0}
+.ctx{font-size:10.5px;color:var(--dim);margin-top:4px}
+/* actuator legend */
+.legendrow{display:flex;gap:10px;font-size:10.5px;color:var(--dim);flex-wrap:wrap;margin-top:6px}
+.dm-hint{font-size:10.5px;color:var(--dim);margin-top:4px}
+/* scrollbars */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#1c2c47;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="logo">◉ TMT-30m <span>自适应光学</span> 校准控制台</div>
+    <div class="tstat">
+      <div>仿真时 <b id="simTime">00:00.0</b></div>
+      <div>帧率 <b id="fps">-- Hz</b></div>
+      <div> seeing <b id="seeStat">1.0″</b></div>
+      <div>开环WFE <b id="olStat">-- nm</b></div>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" id="btnPause">⏸ 暂停</button>
+    <select id="speedSel"><option value="0">单步</option><option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option></select>
+    <button class="btn" id="btnStep">▶| 单步</button>
+    <button class="btn danger" id="btnReset">↺ 全部复位</button>
+    <button class="btn primary" id="btnExport">⬇ 导出决策历史(JSON)</button>
+  </div>
+
+  <!-- LEFT: observation conditions -->
+  <div class="panel left">
+    <h2>观测条件（全局共享）</h2>
+    <div class="field"><label>视宁度 seeing <b id="seeingV">1.0″</b></label>
+      <input type="range" id="seeing" min="0.5" max="1.8" step="0.05" value="1"></div>
+    <div class="field"><label>高空风速（屏漂移）<b id="windV">4 m/s</b></label>
+      <input type="range" id="wind" min="0" max="30" step="1" value="4"></div>
+    <div class="field"><label>目标天顶角 <b id="zenV">30°</b></label>
+      <input type="range" id="zen" min="5" max="65" step="1" value="30"></div>
+    <div class="field"><label>积分时间/帧 <b id="intV">25 ms</b></label>
+      <input type="range" id="integ" min="10" max="80" step="5" value="25"></div>
+    <h3>选择校准星（导星）</h3>
+    <div class="stars" id="starList"></div>
+    <div class="ctx" id="starCtx"></div>
+    <h3>变形镜分区权重</h3>
+    <div class="ctx" style="margin-top:-3px;margin-bottom:5px">作用于当前选中的策略通道；其它通道保持各自默认权重。</div>
+    <div class="field"><label>中心区域权重 w<sub>c</sub> <b id="wcV">1.00</b></label>
+      <input type="range" id="wc" min="0.3" max="2" step="0.05" value="1"></div>
+    <div class="field"><label>边缘环带权重 w<sub>e</sub> <b id="weV">1.00</b></label>
+      <input type="range" id="we" min="0.3" max="2" step="0.05" value="1"></div>
+    <div class="legendrow">
+      <span><span class="swatch" style="background:#4ea8ff"></span>中心 r&lt;0.45</span>
+      <span><span class="swatch" style="background:#c084fc"></span>边缘环带</span>
+    </div>
+    <h3>执行器冻结（隔离）</h3>
+    <div class="dm-hint">在中央「镜面/执行器」视图中点击任意执行器即可冻结/解冻；故障失步执行器会被系统自动冻结（红色）。</div>
+    <div id="frozenList" class="dm-hint" style="margin-top:4px">当前冻结：无</div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="panel main">
+    <div class="vtabs">
+      <div class="vtab active" data-v="phase">波前相位（残差）</div>
+      <div class="vtab" data-v="dm">镜面 / 执行器</div>
+      <div class="vtab" data-v="wfs">夏克-哈特曼子孔径</div>
+      <div class="vtab" data-v="img">科学成像 PSF</div>
+      <div class="vtab" data-v="guide">导星相机</div>
+      <div style="flex:1"></div>
+      <span class="ctx" id="viewerCtx"></span>
+    </div>
+    <div class="viewwrap">
+      <canvas class="bigcanvas" id="big"></canvas>
+      <div class="voverlay" id="vOverlay"></div>
+      <div class="vnote" id="vNote"></div>
+      <div class="vlegend" id="vLegend"></div>
+    </div>
+    <div class="metricrow">
+      <div class="metric"><div class="ml">中心 RMS WFE</div><div class="mv" id="mCen">--</div><div class="ms" id="mCenD">λ/-- （目标 &lt; λ/14）</div></div>
+      <div class="metric"><div class="ml">边缘环带 RMS WFE</div><div class="mv" id="mEdge">--</div><div class="ms" id="mEdgeD">相对上一步 --</div></div>
+      <div class="metric"><div class="ml">Strehl 比（@650nm）</div><div class="mv" id="mStrehl">--</div><div class="ms" id="mStrehlD">衍射极限 Strehl&gt;0.8</div></div>
+      <div class="metric"><div class="ml">FWHM 视宁</div><div class="mv" id="mFwhm">--</div><div class="ms" id="mFwhmD">50% 能量半径 <span id="mE50">--</span></div></div>
+    </div>
+    <div class="lanes" id="lanes"></div>
+  </div>
+
+  <!-- RIGHT: faults + history -->
+  <div class="right">
+    <div class="rcard">
+      <h3>异常注入 <span class="tag">测试恢复路径</span></h3>
+      <div class="faultgrid">
+        <button class="btn" id="fCloud">☁ 云层遮挡（4–8s）</button>
+        <button class="btn" id="fStuck">⚙ 执行器失步</button>
+        <button class="btn" id="fLost">✦ 导星丢失</button>
+      </div>
+      <div class="ctx" style="margin-top:6px" id="faultCtx">系统正常闭环中。三通道共享同一扰动屏与测量，各自独立决策恢复。</div>
+    </div>
+    <div class="rcard" style="flex:1;display:flex;flex-direction:column;min-height:260px">
+      <h3>全部决策历史
+        <span><button class="btn sm" id="histClear">清空显示</button></span>
+      </h3>
+      <div class="hfilter" id="hfilter">
+        <span class="vtab active" data-f="all">全部</span>
+        <span class="vtab" data-f="fault">异常/恢复</span>
+        <span class="vtab" data-f="user">用户操作</span>
+        <span class="vtab" data-f="good">改善</span>
+      </div>
+      <div class="hist" id="hist" style="flex:1"></div>
+    </div>
+  </div>
+
+  <!-- BOTTOM -->
+  <div class="panel bottom">
+    <div class="bpane">
+      <h2>WFE 收敛曲线（三策略 · 同步对照）</h2>
+      <div id="chartWrap"><canvas id="chart"></canvas></div>
+      <div class="ctx" id="chartCtx">实线=中心 RMS，虚线=边缘环带 RMS；阴影带标注异常时段。横轴为仿真时间(s)</div>
+    </div>
+    <div class="bpane">
+      <h2>策略说明与取舍</h2>
+      <canvas id="tradeChart" style="display:none"></canvas>
+      <div id="stratInfo" class="panelscroll" style="flex:1;font-size:11.5px"></div>
+    </div>
+  </div>
+</div>
+<script>
+"use strict";
+/* ============================================================
+ * 常量与物理网格
+ * ============================================================ */
+const N = 48;                 // 相位屏网格
+const NA = 17;                // 变形镜执行器数（直径方向）
+const NS = 20;                 // 夏克-哈特曼子孔径数（直径方向）
+const LAMBDA = 650;           // 科学波长 nm
+const D = 30;                 // 口径 m
+const R0_BASE = 0.16;         // seeing=1" 对应 r0(m, 500nm 经验值)
+const LOOP_HZ = 40;           // AO 回路标称帧率
+const DT = 1 / LOOP_HZ;
+const PHASE_SCALE = 1400;     // 色标满量程 nm
+const HIST_CAP = 800;
+
+const TAU = Math.PI * 2;
+function mulberry(seed){let a=seed>>>0;return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
+ t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const rng = mulberry(20260921);
+
+/* 瞳孔遮罩与分区 */
+const pupil=new Float32Array(N*N);
+const zone=new Uint8Array(N*N); // 0=outside 1=center 2=edge
+let npix=0;
+for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+  const dx=(x-(N-1)/2)/(N/2), dy=(y-(N-1)/2)/(N/2);
+  const r=Math.hypot(dx,dy);
+  const i=y*N+x;
+  if(r<=1){pupil[i]=1;npix++;}
+  if(r<=0.45)zone[i]=1; else if(r<=1)zone[i]=2;
+}
+function zoneStats(phase){
+  let sc=0,se=0,nc=0,ne=0;
+  for(let i=0;i<N*N;i++){
+    if(zone[i]===1){sc+=phase[i]*phase[i];nc++;}
+    else if(zone[i]===2){se+=phase[i]*phase[i];ne++;}
+  }
+  return {c:Math.sqrt(sc/nc), e:Math.sqrt(se/ne), nc, ne};
+}
+function pistonFree(phase){
+  let s=0;for(let i=0;i<N*N;i++)if(pupil[i])s+=phase[i];
+  const m=s/npix;
+  for(let i=0;i<N*N;i++)if(pupil[i])phase[i]-=m;
+}
+
+/* 执行器布局（六边形排布于瞳孔内）与影响函数（格点上预计算） */
+const act=[];
+for(let ay=0;ay<NA;ay++)for(let ax=0;ax<NA;ax++){
+  const px=(ax-(NA-1)/2)/((NA-1)/2);
+  const py=(ay-(NA-1)/2)/((NA-1)/2) + ((ax%2)?0.5/(NA/2):0);
+  if(Math.hypot(px,py)<=0.98) act.push({x:px,y:py,ax,ay,id:act.length});
+}
+const NACT=act.length;
+const infl=new Float32Array(NACT*N*N);
+const INFL_W=0.18;
+for(let a=0;a<NACT;a++){
+  const {x:axp,y:ayp}=act[a];
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    const gx=(x-(N-1)/2)/(N/2), gy=(y-(N-1)/2)/(N/2);
+    const d2=((gx-axp)/INFL_W)**2+((gy-ayp)/INFL_W)**2;
+    infl[a*N*N+y*N+x]=Math.exp(-d2)*pupil[y*N+x];
+  }
+}
+function drawDM(cmds,out){
+  out.fill(0);
+  for(let a=0;a<NACT;a++){
+    const v=cmds[a], base=a*N*N;
+    for(let i=0;i<N*N;i++)out[i]+=v*infl[base+i];
+  }
+}
+
+/* 夏克-哈特曼子孔径（中心落在瞳孔内） */
+const sub=[];
+for(let sy=0;sy<NS;sy++)for(let sx=0;sx<NS;sx++){
+  const cx=(sx+0.5-NS/2)/(NS/2), cy=(sy+0.5-NS/2)/(NS/2);
+  if(Math.hypot(cx,cy)<0.82) sub.push({sx,sy,cx,cy,id:sub.length});
+}
+const NSUB=sub.length;
+
+/* ============================================================
+ * 大气湍流屏：若干带 Kolmogorov 权重的冻结行波，风场平移
+ * ============================================================ */
+const ATM_WAVES=34;
+const atm=[];
+{
+  for(let k=0;k<ATM_WAVES;k++){
+    const rr=rng();
+    const kx=((rng()*2-1)), ky=((rng()*2-1));
+    const km=Math.hypot(kx,ky)||1e-3;
+    const kmod=0.55+rng()*4.2;                       // 空间频率（跨口径周期数）
+    atm.push({kx:kx/km*kmod, ky:ky/km*kmod,
+      amp:1/Math.pow(kmod+0.6,1.33)*(0.6+rng()*0.8), // Kolmogorov 型谱
+      ph:rng()*TAU});
+  }
+}
+const atmPhase=new Float32Array(N*N);
+let wind=4, seeing=1.0, zenith=30, integMs=25;
+let atmOffsetX=0, atmOffsetY=0;
+const WIND_DIR=0.6;
+/* 冻结湍流屏：解析无限 Kolmogorov 型波场，采样窗随风在屏上滑动（无回绕） */
+function r0At(){
+  const air=1/Math.cos(zenith*Math.PI/180);
+  return R0_BASE*Math.pow(seeing,-1.2)*Math.pow(air,-0.6);
+}
+function updateAtmosphere(t){
+  const strength=Math.pow(0.16/r0At(),5/6)*330;
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    const gx=(x+atmOffsetX)/(N/2), gy=(y+atmOffsetY)/(N/2);
+    let sv=0;
+    for(let k=0;k<ATM_WAVES;k++){
+      const w=atm[k];
+      sv+=w.amp*Math.sin(TAU*(w.kx*gx+w.ky*gy)+w.ph);
+    }
+    atmPhase[y*N+x]=sv*pupil[y*N+x]*strength;
+  }
+  pistonFree(atmPhase);
+}
+function advanceWind(){
+  const d=wind*0.012;
+  atmOffsetX+=Math.cos(WIND_DIR)*d;
+  atmOffsetY+=Math.sin(WIND_DIR)*d;
+}
+/* ============================================================
+ * 导星库
+ * ============================================================ */
+const STARS=[
+  {id:'N1',name:'HD 1160 α  Lyr 型',mag:7.8,alt:0,  note:'亮自然导星，位于目标轴上，噪声最低'},
+  {id:'N2',name:'HD 4732 β  Boo 型',mag:9.4,alt:0,  note:'轴上暗星，光子数受限'},
+  {id:'A1',name:'高空钠导引星 LGS-A',mag:8.6,alt:90,note:'激光导星：亮度稳定，但存在等晕角误差（90km 锥光）'}
+];
+let starIdx=0;
+function star(){return STARS[starIdx];}
+
+/* ============================================================
+ * 全局异常 / 执行器状态
+ * ============================================================ */
+const frozen=new Uint8Array(NACT);       // 用户或系统冻结
+const stuckFault=new Uint8Array(NACT);   // 失步标记
+let cloudUntil=0;                          // 云散时间（仿真秒）
+let guideLostUntil=0;                      // 导星丢失截止
+let altGuideLane=false;                    // 是否切到了备用导星
+const eventMarks=[];                       // 图表上的异常区间 {t0,t1,type}
+let pendingStuck=false, pendingLost=false;
+
+/* ============================================================
+ * 三套校准策略（相同观测条件下同步运行）
+ * ============================================================ */
+function makeLane(cfg){
+  return Object.assign({
+    state:'LOCK', stateT:0,
+    cmds:new Float32Array(NACT),
+    mirror:new Float32Array(N*N),
+    res:new Float32Array(N*N),
+    slopes:new Float32Array(NSUB*2),
+    slopeValid:new Uint8Array(NSUB),
+    est:new Float32Array(N*N),
+    hist:[],                     // {t,c,e,s}
+    decisions:[],                // 决策历史
+    wc:1, we:1,                  // 分区权重
+    altGuide:false,
+    gainHold:null,
+    lastTrade:null, lastTradeT:-10,
+    tradeFlash:null,
+    stuckAcks:{},
+    lockT:0
+  },cfg);
+}
+const LANES=[
+  makeLane({key:'int',name:'整体最小二乘 ILS',color:'#4ea8ff',kind:'int',
+    desc:'全场统一权重，最小化全孔径波前残差。收敛稳健，但中心/边缘无法兼顾。',wc:1,we:1}),
+  makeLane({key:'zon',name:'分区加权 Zoned-LS',color:'#34d399',kind:'zon',
+    desc:'对中心科学场与边缘环带分别加权。抬高 w_c 可压低中心 WFE，但边缘执行器自由度被挪用，边缘会恶化（系统会直接标注取舍）。',wc:1.7,we:0.55}),
+  makeLane({key:'pred',name:'风预测 Predictive-LQG',color:'#c084fc',kind:'pred',
+    desc:'利用风场历史做一阶预测，高风速下残差更低；对测量噪声与云层更敏感，异常时倾向保守冻结。',wc:1,we:1})
+];
+let selLane=0;
+let simT=0;
+
+/* ============================================================
+ * 夏克-哈特曼：对残差相位求子孔径平均 x/y 斜率
+ * ============================================================ */
+function measureWFS(lane,phase,t){
+  const half=1/NS;
+  const s=star();
+  const air=1/Math.cos(zenith*Math.PI/180);
+  let trans=1, cloud=(simT<cloudUntil);
+  if(cloud)trans=0.12;
+  let photons=s.mag;
+  let noise;
+  const alt = lane.altGuide;
+  if(alt){ // LGS: 亮度稳但等晕角误差
+    noise=10+2.2*air;
+  } else {
+    noise=2.2*Math.pow(10,(photons-7.5)/2.5)*8; // mag 越暗噪声越大
+    noise*=Math.sqrt(integMs/25)*Math.pow(air,0.8);
+  }
+  noise/=Math.max(trans,0.12);
+  for(const q of sub){
+    const x0=Math.round((q.cx*0.5-half+0.5)*N), x1=Math.round((q.cx*0.5+half+0.5)*N);
+    const y0=Math.round((q.cy*0.5-half+0.5)*N), y1=Math.round((q.cy*0.5+half+0.5)*N);
+    let sx=0,sy=0,n=0;
+    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
+      if(x<1||y<1||x>=N-1||y>=N-1)continue;
+      const i=y*N+x; if(!pupil[i])continue;
+      let v=phase[i];
+      if(alt){ v += anisoplanatic(x,y,t); }
+      sx += (phase[i+1]-phase[i-1])*0.5 + (alt?(anisoplanatic(x+1,y,t)-anisoplanatic(x-1,y,t))*0.5:0);
+      sy += (phase[i+N]-phase[i-N])*0.5 + (alt?(anisoplanatic(x,y+1,t)-anisoplanatic(x,y-1,t))*0.5:0);
+      n++;
+    }
+    const idx=q.id*2;
+    const valid = cloud ? (rng()>0.55) : true;
+    lane.slopeValid[q.id]=valid?1:0;
+    if(valid){
+      lane.slopes[idx]  = (n?sx/n:0) + gauss()*noise*0.10;
+      lane.slopes[idx+1]= (n?sy/n:0) + gauss()*noise*0.10;
+    } else { lane.slopes[idx]=0; lane.slopes[idx+1]=0; }
+  }
+  return noise;
+}
+function gauss(){let u=0,v=0;while(!u)u=rng();while(!v)v=rng();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(TAU*v);}
+/* LGS 锥光各向异性：随时间缓慢变化的边缘偏差场 */
+function anisoplanatic(x,y,t){
+  const gx=(x-(N-1)/2)/(N/2), gy=(y-(N-1)/2)/(N/2);
+  const r=Math.hypot(gx,gy);
+  return 90*r*r*Math.sin(t*1.7+gx*2.2)+40*r*Math.cos(t*1.3+gy*2.6);
+}
+
+/* ============================================================
+ * 由斜率做快速 Jacobi 型波前重建（Hudgin 几何），映射回相位网格
+ * ============================================================ */
+/* 子孔径梯度 -> 网格梯度（最近邻映射） */
+const gxG=new Float32Array(N*N), gyG=new Float32Array(N*N), gW=new Float32Array(N*N);
+function buildGridSlopes(lane){
+  gxG.fill(0);gyG.fill(0);gW.fill(0);
+  const half=1/NS;
+  for(const q of sub){
+    if(!lane.slopeValid[q.id])continue;
+    const x0=Math.round((q.cx*0.5-half+0.5)*N), x1=Math.round((q.cx*0.5+half+0.5)*N);
+    const y0=Math.round((q.cy*0.5-half+0.5)*N), y1=Math.round((q.cy*0.5+half+0.5)*N);
+    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
+      if(x<0||y<0||x>=N||y>=N||!pupil[y*N+x])continue;
+      const i=y*N+x;
+      gxG[i]=lane.slopes[q.id*2];gyG[i]=lane.slopes[q.id*2+1];gW[i]=1;
+    }
+  }
+}
+/* 加权 Jacobi 求解 ∇²φ = div g（Southwell 型），边界 Neumann */
+const phiA=new Float32Array(N*N), phiB=new Float32Array(N*N);
+const RECON_K=1.15;
+function reconstruct(lane,out){
+  buildGridSlopes(lane);
+  phiA.fill(0);
+  const OMEGA=1.5;
+  for(let it=0;it<45;it++){
+    for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+      const i=y*N+x;
+      if(!pupil[i])continue;
+      let nb=0,dv=0;
+      if(x>0&&pupil[i-1]){nb++;dv+=phiA[i-1];}
+      if(x<N-1&&pupil[i+1]){nb++;dv+=phiA[i+1];}
+      if(y>0&&pupil[i-N]){nb++;dv+=phiA[i-N];}
+      if(y<N-1&&pupil[i+N]){nb++;dv+=phiA[i+N];}
+      let gxW=0,gxE=0,gyN=0,gyS=0;
+      if(x>0&&pupil[i-1])gxW=gxG[i-1];
+      if(x<N-1&&pupil[i+1])gxE=gxG[i];
+      if(y>0&&pupil[i-N])gyN=gyG[i-N];
+      if(y<N-1&&pupil[i+N])gyS=gyG[i];
+      const cand=dv/nb+0.5*(gxW-gxE+gyN-gyS);
+      phiA[i]+=OMEGA*(cand-phiA[i]);
+    }
+    let ps=0,pn=0;for(let k=0;k<N*N;k++)if(pupil[k]){ps+=phiA[k];pn++;}
+    const pm=ps/pn;for(let k=0;k<N*N;k++)if(pupil[k])phiA[k]-=pm;
+  }
+  out.set(phiA);
+  for(let i=0;i<N*N;i++)out[i]*=RECON_K;
+  pistonFree(out);
+}
+
+/* ============================================================
+ * 执行器指令拟合：min Σ w_i(φ_i − Σ I_ia c_a)²
+ * 对冻结执行器施加固定值，分区权重 + 对角正则 + 阻尼迭代
+ * ============================================================ */
+const fitTmp=new Float32Array(N*N);
+const corrField=new Float32Array(N*N);
+const corrCmds=new Float32Array(NACT);
+const predTgt=new Float32Array(N*N);
+function fitCommands(lane,target,gain){
+  // 泄漏积分控制：先求「本帧应叠加的镜面修正量」的执行器投影，再累加到命令
+  gain = gain===undefined?0.5:gain;
+  const LEAK=0.02;
+  const cmds=lane.cmds;
+  for(let i=0;i<N*N;i++)
+    corrField[i]=pupil[i]?gain*target[i]:0;
+  const wArr=new Float32Array(N*N);
+  for(let i=0;i<N*N;i++){
+    if(!pupil[i])continue;
+    const wp=zone[i]===1?lane.wc:lane.we;
+    wArr[i]=wp*wp; // 平方映射：放大人为分区取舍，避免自由度冗余掩盖策略差异
+  }
+  const ITERS=5, REG=0.05, STEP=0.9;
+  corrCmds.fill(0);
+  drawDM(corrCmds,fitTmp);
+  for(let it=0;it<ITERS;it++){
+    for(let a=0;a<NACT;a++){
+      if(frozen[a])continue;
+      const base=a*N*N;
+      let num=0,den=0;
+      for(let i=0;i<N*N;i++){
+        const Ia=infl[base+i]; if(!Ia)continue;
+        const w=wArr[i];
+        num+=w*Ia*(corrField[i]-fitTmp[i]);
+        den+=w*Ia*Ia;
+      }
+      const delta=STEP*num/(den+REG*den+1e-6);
+      corrCmds[a]+=delta;
+      for(let i=0;i<N*N;i++)if(infl[base+i])fitTmp[i]+=delta*infl[base+i];
+    }
+  }
+  for(let a=0;a<NACT;a++){
+    if(frozen[a])continue;
+    cmds[a]=cmds[a]*(1-LEAK)+corrCmds[a];
+    cmds[a]=Math.max(-2200,Math.min(2200,cmds[a]));
+  }
+  // 去除整体活塞（冻结执行器不参与）
+  let ps=0,fn=0;for(let a=0;a<NACT;a++)if(!frozen[a]){ps+=cmds[a];fn++;}
+  const pm=ps/fn;for(let a=0;a<NACT;a++)if(!frozen[a])cmds[a]-=pm;
+}
+/* 双线性采样平移（dir 为风向角） */
+function windShift(src,mag,ang,dst){
+  const dx=Math.cos(ang)*mag, dy=Math.sin(ang)*mag;
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    const i=y*N+x;
+    const sx=x-dx, sy=y-dy;
+    const x0=Math.floor(sx),y0=Math.floor(sy),fx=sx-x0,fy=sy-y0;
+    let v=0;
+    if(x0>=0&&y0>=0&&x0<N-1&&y0<N-1){
+      v=src[y0*N+x0]*(1-fx)*(1-fy)+src[y0*N+x0+1]*fx*(1-fy)
+       +src[(y0+1)*N+x0]*(1-fx)*fy+src[(y0+1)*N+x0+1]*fx*fy;
+    }
+    dst[i]=pupil[i]?v:0;
+  }
+}
+function controlStep(lane){
+  const cloud=simT<cloudUntil;
+  const lost=simT<guideLostUntil && !lane.altGuide;
+  reconstruct(lane,lane.est);
+  let target=lane.est; // 镜面相位 = 残差反相抵消：res=atm-mirror，故 mirror 追 +est
+
+  /* ---- 预测通道：冻结流前向外推。把当前重建沿风向前移 1 帧（亚像素），
+          低风速回退普通积分，高风速融合比例自适应提高 ---- */
+  const canPredict=lane.kind==='pred'&&wind>=8&&!cloud&&!lost&&lane.state==='LOCK';
+  if(canPredict){
+    windShift(lane.est,wind*0.012,WIND_DIR,predTgt);
+    const mix=Math.min(0.65,(wind-8)/28);
+    for(let i=0;i<N*N;i++)predTgt[i]=(1-mix)*lane.est[i]+mix*predTgt[i];
+    pistonFree(predTgt);
+    target=predTgt;
+  }
+
+  switch(lane.state){
+    case 'LOCK': {
+      let g = lane.kind==='pred'?0.55 : lane.kind==='zon'?0.5 : 0.5;
+      if(cloud){
+        if(lane.kind==='pred'){ lane.state='HOLD'; lane.stateT=simT; lane.gainHold=g;
+          log(lane,'sys','云层光子骤降，预测发散风险高 → 保持上一帧指令(HOLD)，等待信号恢复'); break; }
+        g*=0.45;
+      }
+      if(lost){
+        lane.state = lane.kind==='zon'?'FALLBACK':'REACQ';
+        lane.stateT=simT;
+        log(lane,'fault', lane.kind==='zon'
+          ? '导星丢失：切换到备用 LGS 导星（引入等晕角误差，边缘 WFE 会上升）'
+          : '导星丢失：冻结镜面指令并在原导星附近螺旋搜索重捕获');
+        if(lane.kind==='zon')lane.altGuide=true;
+        break;
+      }
+      scaledFit(lane,target,g);
+      break;
+    }
+    case 'HOLD':
+      if(!cloud){
+        if(wfsHealthy(lane)){lane.state='LOCK';lane.stateT=simT;
+          log(lane,'good','云隙恢复，斜率相关性达标 → 0.3s 软启动渐变回闭环增益');softRamp(lane);}
+        else {lane.state='REACQ';lane.stateT=simT;log(lane,'fault','云后斜率不一致 → 转入重捕获');}
+      }
+      break;
+    case 'REACQ': {
+      // 螺旋搜索：小幅度试探性指令
+      const ph=(simT-lane.stateT)*3.2;
+      const rad=Math.min(120,(simT-lane.stateT)*60);
+      for(let a=0;a<NACT;a++){ if(frozen[a])continue; }
+      scaledFit(lane,target,0.18);
+      if(!cloud && wfsHealthy(lane) && !lost && simT-lane.stateT>0.6){
+        lane.state='LOCK';lane.stateT=simT;
+        log(lane,'good','重捕获成功：质心回到线性范围，恢复全增益闭环');softRamp(lane);
+      }
+      break;
+    }
+    case 'FALLBACK':
+      scaledFit(lane,target,0.45);
+      if(!lost && !lane.altGuide){lane.state='LOCK';lane.stateT=simT;log(lane,'good','主导星重新可用，切回轴上导星');}
+      else if(simT-guideLostUntil>2.0){ /* stay on alt guide */
+        if(simT-lane.stateT>3 && globalStarBack() && lane.altGuide){
+          lane.altGuide=false;lane.state='LOCK';lane.stateT=simT;
+          log(lane,'good','主导星光度恢复 ≥3s，切回轴上导星，等晕误差消除');
+        }
+      }
+      break;
+    case 'ISO':
+      // 失步隔离：冻结失效执行器，邻居补偿
+      scaledFit(lane,target,0.45);
+      if(wfsHealthy(lane) && simT-lane.stateT>1.2){lane.state='LOCK';lane.stateT=simT;
+        log(lane,'good','隔离后残差收敛，邻居执行器补偿完成');softRamp(lane);}
+      break;
+  }
+  drawDM(lane.cmds,lane.mirror);
+}
+function scaledFit(lane,target,g){
+  fitCommands(lane,target,g);
+}
+function softRamp(lane){ /* 标记：后续若干帧增益自然爬升由 scaledFit 限幅完成 */ lane.lockT=simT; }
+function wfsHealthy(lane){
+  let v=0;for(let k=0;k<NSUB;k++)v+=lane.slopeValid[k];
+  return v/NSUB>0.75;
+}
+function globalStarBack(){return simT>=guideLostUntil;}
+
+/* ============================================================
+ * 成像质量：Maréchal 近似 Strehl + 经验 FWHM/能量半径
+ * ============================================================ */
+function metrics(lane){
+  const z=zoneStats(lane.res);
+  const total=Math.sqrt((z.c*z.c*z.nc+z.e*z.e*z.ne)/(z.nc+z.ne));
+  // 中心科学场决定轴上成像 Strehl；边缘环带高频计入 FWHM/能量半径
+  const sr=Math.exp(-Math.pow(TAU*z.c/LAMBDA,2));
+  const dl=1.03*(LAMBDA*1e-9)/D*206265; // 衍射极限 FWHM ≈ 0.0046″ (650nm/30m)
+  // 残差越大 PSF 越宽：开环(total≈550nm)接近 seeing，闭环(total≈130nm)接近数倍衍射极限
+  const q=Math.min(1,Math.pow(total/550,1.5));
+  const fwhmA=dl*(1+2.0*q)+0.20*seeing*q;
+  const e50=dl*(0.8+1.6*q)+0.07*seeing*q;
+  return {c:z.c,e:z.e,total,sr:Math.max(0,Math.min(0.97,sr)),fwhm:fwhmA,e50};
+}
+
+/* ============================================================
+ * 取舍检测：中心改善而边缘恶化（带滞回）
+ * ============================================================ */
+function detectTrade(lane,m){
+  if(lane.kind!=='zon')return;
+  const base=lane.tradeBase;
+  if(!base)return;
+  if(simT-base.t<1.2)return;            // 等权重调整后重新稳态
+  const h=lane.hist.slice(-40);         // 最近 ~1s 滑动平均，抑制单帧抖动
+  const mc=h.reduce((a,p)=>a+p.c,0)/h.length, me=h.reduce((a,p)=>a+p.e,0)/h.length;
+  const dc=base.c-mc, de=me-base.e;
+  const centerSac=de>12 && dc>-10;   // 边缘显著恶化且中心未获得相当改善
+  const edgeSac=dc>12 && de>-10;
+  if(centerSac){
+    lane.lastTradeT=simT;lane.tradeFlash={t:simT,dc,de};
+    const dcc=Math.round(-dc);
+    log(lane,'sys',`取舍：中心 WFE ${dcc>6?('↓'+dcc+'nm，'):'基本持平，但'}边缘环带 ↑${Math.round(de)}nm（自由度向中心倾斜）`,true);
+    if(selLane===1)flashNote(dcc>6?`中心改善 ${dcc}nm，边缘恶化 ${Math.round(de)}nm —— 中心/边缘取舍`:`中心已无改善空间，边缘恶化 ${Math.round(de)}nm —— 中心/边缘取舍`,false);
+    lane.tradeBase=null;
+  } else if(edgeSac){
+    lane.lastTradeT=simT;lane.tradeFlash={t:simT,dc,de};
+    const dee=Math.round(-de);
+    log(lane,'sys',`取舍：边缘环带 ${dee>6?('↓'+dee+'nm，'):'基本持平，但'}中心 WFE ↑${Math.round(dc)}nm（自由度向边缘倾斜）`,true);
+    if(selLane===1)flashNote(dee>6?`边缘改善 ${dee}nm，中心恶化 ${Math.round(dc)}nm`:`边缘已无改善空间，中心恶化 ${Math.round(dc)}nm`,false);
+    lane.tradeBase=null;
+  }
+}
+/* 权重改变时建立「调整前」基线，供取舍检测对比 */
+function markTradeBase(lane){
+  const m0=lane._m;if(!m0)return;
+  lane.tradeBase={t:simT,c:m0.c,e:m0.e,wc:lane.wc,we:lane.we};
+}
+
+/* ============================================================
+ * 主节拍
+ * ============================================================ */
+function tick(){
+  advanceWind();
+  updateAtmosphere(simT);
+  const cloud=simT<cloudUntil, lost=simT<guideLostUntil;
+
+  // 全局导星丢失：ILS/PRED 无备用星；ZON 走 FALLBACK
+  let tr2=0,trn=0;for(let i=0;i<N*N;i++)if(pupil[i]){tr2+=atmPhase[i]*atmPhase[i];trn++;}
+  const trueOL=Math.sqrt(tr2/trn);
+  LANES.forEach((lane)=>{
+    for(let i=0;i<N*N;i++)lane.res[i]=pupil[i]?(atmPhase[i]-lane.mirror[i]):0;
+    pistonFree(lane.res);
+    let rr2=0;for(let i=0;i<N*N;i++)if(pupil[i])rr2+=lane.res[i]*lane.res[i];
+    lane._trueRMS=Math.sqrt(rr2/trn);
+    measureWFS(lane,lane.res,simT);
+    controlStep(lane);
+    for(let i=0;i<N*N;i++)lane.res[i]=pupil[i]?(atmPhase[i]-lane.mirror[i]):0;
+    pistonFree(lane.res);
+    const m=metrics(lane);
+    lane.hist.push({t:simT,c:m.c,e:m.e,s:m.sr});
+    if(lane.hist.length>900)lane.hist.shift();
+    detectTrade(lane,m);
+    lane._m=m;
+  });
+
+  // 失步执行器恢复路径：首次检测到残差局部异常 → ISO（注入驱动，见故障函数）
+  handleFaultTimers();
+  simT+=DT;
+}
+
+
+/* ============================================================
+ * 故障定时器与恢复
+ * ============================================================ */
+function handleFaultTimers(){
+  // 云层结束：若通道处于 HOLD，由状态机在 wfsHealthy 后恢复（已在 controlStep 处理）
+  if(pendingStuck){
+    pendingStuck=false;
+    injectStuckImmediate();
+  }
+  if(pendingLost){
+    pendingLost=false;
+  }
+  // 图表异常区间闭合
+  while(eventMarks.length && eventMarks[0].t1 && simT>eventMarks[0].t1+0.2 && eventMarks[0].closed)eventMarks.shift();
+}
+function injectStuckImmediate(){
+  // 随机选一个内圈执行器失步
+  const pool=[];
+  for(let a=0;a<NACT;a++){const q=act[a];if(Math.hypot(q.x,q.y)<0.7&&!frozen[a])pool.push(a);}
+  const a=pool[Math.floor(rng()*pool.length)];
+  stuckFault[a]=1; frozen[a]=1;
+  eventMarks.push({t0:simT,t1:null,type:'stuck'});
+  logGlobal('fault',`执行器 #${a}（${act[a].ax},${act[a].ay}）失步：位置反馈锁死，已从闭环中隔离`);
+  LANES.forEach((lane,li)=>{
+    lane.state='ISO';lane.stateT=simT;lane.stuckAcks[a]=simT;
+    log(lane,'fault',`检测到 #${a} 局部残差台阶 → 自动冻结并由 ${neighborsOf(a).length} 个相邻执行器补偿`);
+  });
+  renderFrozen();
+}
+function neighborsOf(a){
+  const p=act[a];return act.filter(q=>q!==p&&Math.hypot(q.x-p.x,q.y-p.y)<0.24);
+}
+
+/* ============================================================
+ * 故障注入（用户触发）
+ * ============================================================ */
+function injectCloud(){
+  const dur=4+rng()*4;
+  cloudUntil=simT+dur;
+  eventMarks.push({t0:simT,t1:simT+dur,type:'cloud',closed:false});
+  logGlobal('fault',`云层遮挡开始：透过率降至 ~12%，预计持续 ${dur.toFixed(1)}s`);
+  LANES.forEach((lane)=>{
+    if(lane.kind==='int')log(lane,'sys','低光子下噪声放大 → 增益下调至 45%，保持闭环但放慢校正');
+    if(lane.kind==='zon')log(lane,'sys','分区控制器降增益运行，优先保住中心科学场');
+    if(lane.kind==='pred')log(lane,'sys','测量噪声将污染预测模型 → 主动转入 HOLD（决策不同于另两路）');
+  });
+}
+function injectStuck(){
+  if(simT<cloudUntil){logGlobal('fault','云层期间暂不注入执行器故障（避免叠加）');return;}
+  pendingStuck=true;
+}
+function injectLost(){
+  const dur=3+rng()*3;
+  guideLostUntil=simT+dur;
+  eventMarks.push({t0:simT,t1:simT+dur,type:'lost',closed:false});
+  logGlobal('fault',`导星丢失：质心跳出捕获窗口，预计 ${dur.toFixed(1)}s 后光度恢复`);
+  LANES.forEach(lane=>{
+    if(lane.kind==='zon'){ /* 状态机在 tick 中处理 FALLBACK */ }
+    else log(lane,'fault','无备用导星 → REACQ：冻结校正并执行螺旋搜索重捕获');
+  });
+}
+
+/* ============================================================
+ * 决策历史
+ * ============================================================ */
+const history=[];
+function logGlobal(kind,text){
+  history.push({t:simT,lane:null,kind,text});
+  if(history.length>HIST_CAP)history.shift();
+  renderHist();
+}
+function log(lane,kind,text,isTrade){
+  const e={t:simT,lane:lane.key,laneName:lane.name,kind,text,trade:!!isTrade,
+    c:lane._m?lane._m.c:null,e:lane._m?lane._m.e:null,sr:lane._m?lane._m.sr:null};
+  history.push(e);
+  if(history.length>HIST_CAP)history.shift();
+  lane.decisions.push(e);
+  renderHist();
+}
+function logUser(text){logGlobal('user',text);}
+
+/* ============================================================
+ * 初始化 / 复位
+ * ============================================================ */
+function resetSim(){
+  simT=0;cloudUntil=0;guideLostUntil=0;pendingStuck=false;pendingLost=false;
+  frozen.fill(0);stuckFault.fill(0);eventMarks.length=0;history.length=0;
+  LANES.forEach(l=>{
+    l.state='LOCK';l.stateT=0;l.cmds.fill(0);l.mirror.fill(0);l.res.fill(0);l.est.fill(0);
+    l.hist.length=0;l.decisions.length=0;l.altGuide=false;l.lastTradeT=-10;l.tradeFlash=null;l.tradeBase=null;
+    l.stuckAcks={};
+    if(l.kind==='zon'){l.wc=1.7;l.we=0.55;}else{l.wc=1;l.we=1;}
+  });
+  logGlobal('sys','系统复位：三策略在相同 seeing / 导星 / 扰动屏下同步启动（开环）');
+  syncWeightUI();renderFrozen();
+}
+
+/* ============================================================
+ * 画布渲染
+ * ============================================================ */
+const big=document.getElementById('big'), bctx=big.getContext('2d');
+const imgData=bctx.createImageData(N,N);
+function fitCanvas(c){
+  const r=c.parentElement.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||1;
+  c.width=Math.max(50,r.width*dpr);c.height=Math.max(50,r.height*dpr);
+  c.style.width=r.width+'px';c.style.height=r.height+'px';
+  c.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
+}
+function diverging(v){ // -1..1 -> 蓝-白-红（红=波峰）
+  v=Math.max(-1,Math.min(1,v));
+  if(v>=0){return [248-(1-v)*140,113+(1-v)*110,113+(1-v)*130];}
+  v=-v;return [78+(1-v)*130,168+(1-v)*60,255-(1-v)*70];
+}
+function drawPhaseMap(ctx,w,h,phase,opts={}){
+  const scale=opts.scale||PHASE_SCALE;
+  const d=imgData.data;
+  for(let i=0;i<N*N;i++){
+    const o=i*4;
+    if(!pupil[i]){d[o]=6;d[o+1]=9;d[o+2]=17;d[o+3]=255;continue;}
+    const [r,g,b]=diverging(phase[i]/scale);
+    d[o]=r;d[o+1]=g;d[o+2]=b;d[o+3]=255;
+  }
+  const tmp=document.createElement('canvas');tmp.width=N;tmp.height=N;
+  tmp.getContext('2d').putImageData(imgData,0,0);
+  const m=Math.min(w,h), x0=(w-m)/2,y0=(h-m)/2;
+  ctx.imageSmoothingEnabled=true;
+  ctx.clearRect(0,0,w,h);
+  ctx.save();
+  ctx.beginPath();ctx.arc(w/2,h/2,m/2,0,TAU);ctx.clip();
+  ctx.drawImage(tmp,x0,y0,m,m);
+  ctx.restore();
+  // 分区边界
+  ctx.strokeStyle='rgba(255,255,255,.55)';ctx.setLineDash([5,4]);ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(w/2,h/2,m/2*0.45,0,TAU);ctx.stroke();ctx.setLineDash([]);
+  ctx.strokeStyle='rgba(255,255,255,.35)';
+  ctx.beginPath();ctx.arc(w/2,h/2,m/2,0,TAU);ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.75)';ctx.font='11px sans-serif';
+  if(opts.labels!==false){
+    ctx.fillText('中心 r<0.45',w/2-34,h/2-m*0.23);
+    ctx.save();ctx.fillStyle='rgba(230,210,255,.9)';
+    ctx.fillText('边缘环带',w/2+m*0.30,h/2-m*0.30);ctx.restore();
+  }
+}
+function overlayTrade(ctx,w,h,lane){
+  const tf=lane.tradeFlash;
+  if(!tf)return;
+  const dt=simT-tf.t;if(dt>5)return;
+  const a=Math.min(1,(5-dt)/2);
+  const m=Math.min(w,h);
+  ctx.save();ctx.globalAlpha=a;
+  // 中心绿环（改善）
+  ctx.strokeStyle='#34d399';ctx.lineWidth=4;
+  ctx.beginPath();ctx.arc(w/2,h/2,m*0.45/2,-0.9,0.9);ctx.stroke();
+  // 边缘红弧（恶化）
+  ctx.strokeStyle='#f87171';ctx.lineWidth=4;
+  ctx.beginPath();ctx.arc(w/2,h/2,m/2-3,2.2,4.0);ctx.stroke();
+  ctx.fillStyle='rgba(10,16,28,.85)';
+  const t1=`中心 ▼${Math.round(-tf.dc)}nm`,t2=`边缘 ▲${Math.round(tf.de)}nm`;
+  ctx.font='bold 12px sans-serif';
+  ctx.fillText(t1,w/2-m*0.30,h/2-m*0.28);
+  ctx.fillStyle='#fca5a5';ctx.fillText(t2,w/2+m*0.18,h/2-m*0.42);
+  ctx.restore();
+}
+
+/* ---- 镜面/执行器视图 ---- */
+function drawDMView(ctx,w,h,lane){
+  const m=Math.min(w,h), x0=(w-m)/2,y0=(h-m)/2,R=m/2;
+  ctx.clearRect(0,0,w,h);
+  // 镜面底色 + 指令热图
+  const im=bctx.createImageData(N,N);
+  const tmp=document.createElement('canvas');tmp.width=N;tmp.height=N;
+  const tctx=tmp.getContext('2d');
+  const d=im.data;
+  for(let i=0;i<N*N;i++){const o=i*4;
+    if(!pupil[i]){d[o]=6;d[o+1]=9;d[o+2]=17;d[o+3]=255;continue;}
+    const v=lane.mirror[i]/PHASE_SCALE;const[c1,g,b]=diverging(v);
+    d[o]=c1;d[o+1]=g;d[o+2]=b;d[o+3]=255;}
+  tctx.putImageData(im,0,0);
+  ctx.save();ctx.beginPath();ctx.arc(w/2,h/2,R,0,TAU);ctx.clip();
+  ctx.drawImage(tmp,x0,y0,m,m);ctx.restore();
+  ctx.strokeStyle='rgba(255,255,255,.3)';ctx.beginPath();ctx.arc(w/2,h/2,R,0,TAU);ctx.stroke();
+  ctx.beginPath();ctx.arc(w/2,h/2,R*0.45,0,TAU);ctx.setLineDash([4,4]);
+  ctx.strokeStyle='rgba(255,255,255,.4)';ctx.stroke();ctx.setLineDash([]);
+  // 执行器
+  for(let a=0;a<NACT;a++){
+    const p=act[a], px=w/2+p.x*R*0.96, py=h/2+p.y*R*0.96;
+    ctx.beginPath();ctx.arc(px,py,4.2,0,TAU);
+    if(stuckFault[a]){ctx.fillStyle='#f87171';ctx.fill();ctx.strokeStyle='#fff';ctx.stroke();}
+    else if(frozen[a]){ctx.fillStyle='#fbbf24';ctx.fill();}
+    else{ctx.fillStyle='rgba(219,230,245,.85)';ctx.fill();}
+  }
+  ctx.font='11px sans-serif';ctx.fillStyle='rgba(255,255,255,.8)';
+  ctx.fillText('黄=用户冻结  红=失步隔离  点击圆点冻结/解冻',10,h-12);
+}
+/* DM 视图点击：命中执行器则切换冻结（失步的不可手动解冻，需修复） */
+function dmHit(px,py){
+  const r=big.getBoundingClientRect(), w=r.width,h=r.height;
+  const x=px-r.left,y=py-r.top,R=Math.min(w,h)/2;
+  let best=-1,bd=1e9;
+  for(let a=0;a<NACT;a++){
+    const p=act[a],ax=w/2+p.x*R*0.96,ay=h/2+p.y*R*0.96;
+    const dd=Math.hypot(x-ax,y-ay);if(dd<9&&dd<bd){bd=dd;best=a;}
+  }
+  return best;
+}
+/* ---- 夏克-哈特曼子孔径 ---- */
+function drawWFS(ctx,w,h,lane){
+  const m=Math.min(w,h),R=m/2;
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='rgba(8,13,24,.9)';ctx.beginPath();ctx.arc(w/2,h/2,R,0,TAU);ctx.fill();
+  const cell=m/NS*0.9;
+  for(const q of sub){
+    const cx=w/2+q.cx*R*0.82, cy=h/2+q.cy*R*0.82;
+    const valid=lane.slopeValid[q.id];
+    ctx.strokeStyle=valid?'rgba(120,150,190,.5)':'rgba(248,113,113,.5)';
+    ctx.lineWidth=1;ctx.strokeRect(cx-cell/2,cy-cell/2,cell,cell);
+    const sx=lane.slopes[q.id*2], sy=lane.slopes[q.id*2+1];
+    const mag=Math.hypot(sx,sy), L=Math.min(cell*0.42,mag*260);
+    const ang=Math.atan2(sy,sx);
+    // 参考十字
+    ctx.strokeStyle='rgba(127,147,178,.5)';ctx.beginPath();
+    ctx.moveTo(cx-3,cy);ctx.lineTo(cx+3,cy);ctx.moveTo(cx,cy-3);ctx.lineTo(cx,cy+3);ctx.stroke();
+    if(valid){
+      ctx.strokeStyle=mag>0.03?'#fbbf24':'#34d399';ctx.lineWidth=1.6;
+      ctx.beginPath();ctx.moveTo(cx,cy);
+      ctx.lineTo(cx+Math.cos(ang)*L,cy+Math.sin(ang)*L);ctx.stroke();
+      ctx.fillStyle=ctx.strokeStyle;
+      ctx.beginPath();ctx.arc(cx+Math.cos(ang)*L,cy+Math.sin(ang)*L,2,0,TAU);ctx.fill();
+    }else{
+      ctx.fillStyle='rgba(248,113,113,.8)';ctx.font='9px sans-serif';
+      ctx.fillText('×',cx-3,cy+3);
+    }
+  }
+  ctx.strokeStyle='rgba(255,255,255,.25)';ctx.beginPath();ctx.arc(w/2,h/2,R,0,TAU);ctx.stroke();
+}
+
+/* ---- 科学成像 PSF（简化：高斯核 + 衍射环 + 散粒噪声） ---- */
+function drawScience(ctx,w,h,m){
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#04070d';ctx.fillRect(0,0,w,h);
+  // 星场
+  for(const st of starField){
+    ctx.globalAlpha=st.b;ctx.fillStyle='#cfe0ff';
+    ctx.beginPath();ctx.arc(st.x*w,st.y*h,st.r,0,TAU);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  const cx=w/2,cy=h/2;
+  const sigma=Math.max(2.2, m.e50*900);
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,sigma*4);
+  const core=Math.round(60+195*m.sr);
+  g.addColorStop(0,`rgba(${core},${core+10},255,${0.85})`);
+  g.addColorStop(0.25,`rgba(80,120,220,${0.35*m.sr+0.12})`);
+  g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,sigma*4,0,TAU);ctx.fill();
+  // Airy 环（Strehl 越高越明显）
+  if(m.sr>0.35){
+    ctx.strokeStyle=`rgba(150,190,255,${(m.sr-0.35)*0.8})`;ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(cx,cy,sigma*2.2,0,TAU);ctx.stroke();
+  }
+  // 散粒噪声
+  ctx.globalAlpha=0.10;
+  for(let k=0;k<160;k++){
+    ctx.fillStyle=rng()>0.5?'#9db8e8':'#223';
+    ctx.fillRect(rng()*w,rng()*h,1,1);
+  }
+  ctx.globalAlpha=1;
+  ctx.fillStyle='rgba(255,255,255,.8)';ctx.font='11px sans-serif';
+  ctx.fillText(`Strehl ${(m.sr*100).toFixed(1)}%   FWHM ${m.fwhm.toFixed(3)}″   E50 ${m.e50.toFixed(3)}″`,10,h-12);
+}
+const starField=[];
+for(let k=0;k<120;k++)starField.push({x:rng(),y:rng(),b:0.15+rng()*0.6,r:rng()<0.85?0.6:1.2});
+/* ---- 导星相机 ---- */
+function drawGuide(ctx,w,h,lane){
+  ctx.clearRect(0,0,w,h);ctx.fillStyle='#04070d';ctx.fillRect(0,0,w,h);
+  const cx=w/2,cy=h/2,R=Math.min(w,h)*0.38;
+  ctx.strokeStyle='rgba(90,120,170,.35)';
+  for(let rr=R/3;rr<=R;rr+=R/3){ctx.beginPath();ctx.arc(cx,cy,rr,0,TAU);ctx.stroke();}
+  ctx.beginPath();ctx.moveTo(cx-R,cy);ctx.lineTo(cx+R,cy);
+  ctx.moveTo(cx,cy-R);ctx.lineTo(cx,cy+R);ctx.stroke();
+  const cloud=simT<cloudUntil, lost=simT<guideLostUntil&&!lane.altGuide;
+  // 质心抖动：由斜率噪声驱动
+  let jx=0,jy=0;
+  for(const q of sub){jx+=lane.slopes[q.id*2];jy+=lane.slopes[q.id*2+1];}
+  jx=jx/NSUB*2.2;jy=jy/NSUB*2.2;
+  const jm=Math.hypot(jx,jy),jmax=R*0.42;
+  if(jm>jmax){jx*=jmax/jm;jy*=jmax/jm;}
+  if(cloud){jx+=gauss()*10;jy+=gauss()*10;}
+  if(lost){ // 质心跳出窗口螺旋漂移
+    const tt=simT*4;jx=Math.cos(tt)*R*0.9;jy=Math.sin(tt*1.3)*R*0.9;
+  }
+  const px=cx+jx,py=cy+jy;
+  if(!lost){
+    const rad=cloud?18:11;
+    const g=ctx.createRadialGradient(px,py,0,px,py,rad);
+    g.addColorStop(0,cloud?'rgba(150,180,255,1)':'rgba(235,245,255,1)');
+    g.addColorStop(0.35,cloud?'rgba(110,150,235,.85)':'rgba(150,190,255,.85)');
+    g.addColorStop(1,'rgba(40,80,180,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(px,py,rad,0,TAU);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(px,py,2.2,0,TAU);ctx.fill();
+  }
+  // 捕获窗口
+  ctx.strokeStyle=lost?'rgba(248,113,113,.8)':'rgba(52,211,153,.7)';
+  ctx.lineWidth=1.4;ctx.strokeRect(cx-R*0.5,cy-R*0.5,R,R);
+  ctx.fillStyle='rgba(255,255,255,.8)';ctx.font='11px sans-serif';
+  const s=star();
+  let msg=`导星：${s.name}（${lane.altGuide?'当前使用备用 LGS':'轴上 NGS'}）`;
+  if(cloud)msg+='  · 云层低光子';if(lost)msg+='  · 质心丢失';
+  ctx.fillText(msg,10,h-12);
+}
+/* ---- 通道缩略图（残差相位） ---- */
+function drawThumb(cv,lane){
+  const c=cv.getContext('2d');
+  const w=cv.clientWidth,h=cv.clientHeight;
+  if(cv.width!==w){cv.width=w;cv.height=h;}
+  const N2=N,im=c.createImageData(N2,N2),d=im.data;
+  for(let i=0;i<N2*N2;i++){const o=i*4;
+    if(!pupil[i]){d[o]=5;d[o+1]=8;d[o+2]=15;d[o+3]=255;continue;}
+    const[r,g,b]=diverging(lane.res[i]/PHASE_SCALE);
+    d[o]=r;d[o+1]=g;d[o+2]=b;d[o+3]=255;}
+  const tmp=document.createElement('canvas');tmp.width=N2;tmp.height=N2;
+  tmp.getContext('2d').putImageData(im,0,0);
+  const m=Math.min(w,h);
+  c.clearRect(0,0,w,h);
+  c.save();c.beginPath();c.arc(w/2,h/2,m/2,0,TAU);c.clip();
+  c.drawImage(tmp,(w-m)/2,(h-m)/2,m,m);c.restore();
+  c.strokeStyle='rgba(255,255,255,.25)';c.beginPath();c.arc(w/2,h/2,m/2,0,TAU);c.stroke();
+}
+
+/* ============================================================
+ * 收敛曲线图
+ * ============================================================ */
+const chart=document.getElementById('chart'),cctx=chart.getContext('2d');
+function drawChart(){
+  const r=chart.parentElement.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||1;
+  const w=r.width-4,h=r.height-4;
+  if(chart.width!==w*dpr){chart.width=w*dpr;chart.height=h*dpr;
+    chart.style.width=w+'px';chart.style.height=h+'px';cctx.setTransform(dpr,0,0,dpr,0,0);}
+  cctx.clearRect(0,0,w,h);
+  const padL=34,padB=16,padT=6,padR=8;
+  
+  const t0=Math.max(0,simT-60);
+  const ymax=950;
+  const X=t=>padL+(t-t0)/60*(w-padL-padR);
+  const Y=v=>padT+(1-v/ymax)*(h-padT-padB);
+  // 网格
+  cctx.strokeStyle='rgba(127,147,178,.15)';cctx.fillStyle='#7f93b2';cctx.font='9px sans-serif';
+  for(let v=0;v<=900;v+=150){
+    cctx.beginPath();cctx.moveTo(padL,Y(v));cctx.lineTo(w-padR,Y(v));cctx.stroke();
+    cctx.fillText(v+'',4,Y(v)+3);
+  }
+  // λ/14 目标线
+  cctx.strokeStyle='rgba(52,211,153,.5)';cctx.setLineDash([4,3]);
+  cctx.beginPath();cctx.moveTo(padL,Y(LAMBDA/14));cctx.lineTo(w-padR,Y(LAMBDA/14));cctx.stroke();
+  cctx.setLineDash([]);cctx.fillStyle='#34d399';cctx.fillText('λ/14',w-34,Y(LAMBDA/14)-3);
+  // 异常区间
+  for(const e of eventMarks){
+    if(e.t1==null||X(e.t1)<padL)continue;
+    const col=e.type==='cloud'?'rgba(140,160,190,.14)':e.type==='stuck'?'rgba(248,113,113,.12)':'rgba(192,132,252,.13)';
+    cctx.fillStyle=col;cctx.fillRect(X(e.t0),padT,Math.max(2,X(e.t1)-X(e.t0)),h-padT-padB);
+  }
+  // 三通道
+  for(let li=0;li<3;li++){
+    const lane=LANES[li],hist=lane.hist;
+    cctx.strokeStyle=lane.color;cctx.lineWidth=1.6;cctx.beginPath();
+    let started=false;
+    for(const p of hist){
+      if(p.t<t0)continue;
+      const x=X(p.t),y=Y(p.c);
+      if(!started){cctx.moveTo(x,y);started=true;}else cctx.lineTo(x,y);
+    }
+    cctx.stroke();
+    cctx.globalAlpha=.55;cctx.setLineDash([3,3]);cctx.beginPath();started=false;
+    for(const p of hist){if(p.t<t0)continue;
+      const x=X(p.t),y=Y(p.e);
+      if(!started){cctx.moveTo(x,y);started=true;}else cctx.lineTo(x,y);}
+    cctx.stroke();cctx.setLineDash([]);cctx.globalAlpha=1;
+    // 端点
+    const last=hist[hist.length-1];if(last){
+      cctx.fillStyle=lane.color;cctx.beginPath();cctx.arc(X(last.t),Y(last.c),2.6,0,TAU);cctx.fill();
+    }
+  }
+  // 图例
+  cctx.font='10px sans-serif';let lx=padL+4;
+  LANES.forEach(lane=>{
+    cctx.fillStyle=lane.color;cctx.fillRect(lx,padT+2,8,3);cctx.fillStyle='#9fb2cf';
+    cctx.fillText(lane.name,lx+11,padT+7);lx+=11+cctx.measureText(lane.name).width+14;
+  });
+  cctx.fillStyle='#9fb2cf';cctx.fillText('— 中心   - - 边缘',lx,padT+7);
+}
+
+/* ============================================================
+ * UI 构建
+ * ============================================================ */
+let viewer='phase';
+function buildStars(){
+  const el=document.getElementById('starList');el.innerHTML='';
+  STARS.forEach((s,i)=>{
+    const d=document.createElement('div');
+    d.className='star'+(i===starIdx?' active':'');
+    d.innerHTML=`<div class="sn">${s.name} <span class="tag ${s.alt?'alt':''}">${s.alt?'LGS 90km':'NGS'} · ${s.mag.toFixed(1)}mag</span></div>
+      <div class="sd">${s.note}</div>`;
+    d.onclick=()=>{
+      if(simT<guideLostUntil){logUser('导星丢失期间无法手动切换导星');return;}
+      starIdx=i;buildStars();logUser(`校准星切换为 ${s.name}（${s.mag}mag${s.alt?'，含等晕角误差':''}）`);
+      document.getElementById('starCtx').textContent=s.alt
+        ?'提示：LGS 亮度稳定但锥光效应使边缘环带存在系统性残差，「分区加权」可观察取舍。'
+        :'提示：轴上自然导星无等晕误差；暗星会放大量测噪声。';
+    };
+    el.appendChild(d);
+  });
+}
+const STATE_TXT={LOCK:'闭环锁定',HOLD:'保持冻结',REACQ:'重捕获中',ISO:'隔离补偿',FALLBACK:'备用导星',WAIT:'等待'};
+function buildLanes(){
+  const el=document.getElementById('lanes');el.innerHTML='';
+  LANES.forEach((lane,i)=>{
+    const d=document.createElement('div');
+    d.className='lane'+(i===selLane?' sel':'');d.style.setProperty('--lc',lane.color);
+    d.innerHTML=`
+      <div class="lh"><span class="dot"></span><span class="lname">${lane.name}</span>
+        <span class="lstate ${lane.state}">${STATE_TXT[lane.state]||lane.state}</span></div>
+      <div class="thumbwrap"><canvas></canvas></div>
+      <div class="trade"></div>
+      <div class="lnums">
+        <div><div class="k">中心nm</div><div class="v c">--</div></div>
+        <div><div class="k">边缘nm</div><div class="v e">--</div></div>
+        <div><div class="k">Strehl</div><div class="v s">--</div></div>
+      </div>
+      <div class="lbtnrow">
+        <button class="btn sm" data-act="view">送入大图</button>
+        <button class="btn sm" data-act="center">中心优先</button>
+        <button class="btn sm" data-act="edge">边缘优先</button>
+      </div>`;
+    d.querySelector('.lh').onclick=()=>{selLane=i;syncWeightUI();buildLanes();};
+    d.querySelector('[data-act=view]').onclick=ev=>{ev.stopPropagation();selLane=i;buildLanes();};
+    d.querySelector('[data-act=center]').onclick=ev=>{ev.stopPropagation();selLane=i;
+      lane.wc=Math.min(2,lane.wc+0.2);lane.we=Math.max(0.3,lane.we-0.1);
+      syncWeightUI();markTradeBase(lane);log(lane,'user',`手动策略：中心权重→${lane.wc.toFixed(2)}，边缘→${lane.we.toFixed(2)}（注意边缘可能恶化）`);buildLanes();};
+    d.querySelector('[data-act=edge]').onclick=ev=>{ev.stopPropagation();selLane=i;
+      lane.we=Math.min(2,lane.we+0.2);lane.wc=Math.max(0.3,lane.wc-0.1);
+      syncWeightUI();markTradeBase(lane);log(lane,'user',`手动策略：边缘权重→${lane.we.toFixed(2)}，中心→${lane.wc.toFixed(2)}`);buildLanes();};
+    el.appendChild(d);
+  });
+}
+function syncWeightUI(){
+  const lane=LANES[selLane];
+  document.getElementById('wc').value=lane.wc;document.getElementById('we').value=lane.we;
+  document.getElementById('wcV').textContent=lane.wc.toFixed(2);
+  document.getElementById('weV').textContent=lane.we.toFixed(2);
+}
+function renderFrozen(){
+  const fs=[];for(let a=0;a<NACT;a++)if(frozen[a])fs.push('#'+a+(stuckFault[a]?'(失步)':''));
+  document.getElementById('frozenList').textContent='当前冻结：'+(fs.length?fs.join('、'):'无');
+}
+let histFilter='all';
+function renderHist(){
+  const el=document.getElementById('hist');
+  const frag=document.createDocumentFragment();
+  let n=0;
+  for(let k=history.length-1;k>=0&&n<120;k--){
+    const e=history[k];
+    if(histFilter!=='all'){
+      if(histFilter==='good'&&e.kind!=='good')continue;
+      if(histFilter==='fault'&&e.kind!=='fault'&&e.kind!=='sys')continue;
+      if(histFilter==='user'&&e.kind!=='user')continue;
+    }
+    n++;
+    const d=document.createElement('div');d.className='hitem '+e.kind;
+    const chip=e.lane?`<span class="hchip" style="color:var(--c${LANES.findIndex(l=>l.key===e.lane)+1})">[${e.laneName}]</span>`:'';
+    const snap=(e.c!=null)?` <span class="ht">中${Math.round(e.c)}/边${Math.round(e.e)}nm</span>`:'';
+    d.innerHTML=`<div class="ht">${fmtT(e.t)}</div><div class="hc">${chip}${e.text}${snap}</div>`;
+    frag.appendChild(d);
+  }
+  el.innerHTML='';el.appendChild(frag);
+}
+function fmtT(t){const m=Math.floor(t/60),s=Math.floor(t%60),d=Math.floor((t%1)*10);
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${d}`;}
+function flashNote(text,good){
+  const n=document.getElementById('vNote');n.textContent=text;
+  n.className='vnote show '+(good?'good':'bad');
+  clearTimeout(flashNote._t);
+  flashNote._t=setTimeout(()=>{n.className='vnote';},3200);
+}
+
+/* ============================================================
+ * 数值面板更新
+ * ============================================================ */
+function updatePanels(){
+  const lane=LANES[selLane],m=lane._m;
+  if(!m)return;
+  document.getElementById('mCen').textContent=Math.round(m.c)+' nm';
+  document.getElementById('mEdge').textContent=Math.round(m.e)+' nm';
+  document.getElementById('mStrehl').textContent=(m.sr*100).toFixed(1)+' %';
+  document.getElementById('mFwhm').textContent=m.fwhm.toFixed(3)+' ″';
+  document.getElementById('mE50').textContent=m.e50.toFixed(3)+'″';
+  const lamO=LAMBDA/m.c;
+  const ce=document.getElementById('mCen');
+  document.getElementById('mCenD').textContent=`λ/${lamO.toFixed(1)} （目标 < λ/14）`;
+  document.getElementById('mCen').className='mv '+(m.c<LAMBDA/14?'good':m.c<LAMBDA/8?'warn':'bad');
+  document.getElementById('mStrehl').className='mv '+(m.sr>0.8?'good':m.sr>0.4?'warn':'bad');
+  const h=lane.hist;
+  if(h.length>=2){
+    const p=h[h.length-2];
+    const de=m.e-p.e;
+    document.getElementById('mEdgeD').textContent=(de>=0?'↑ +':'↓ ')+Math.round(Math.abs(de))+' nm / 步';
+    document.getElementById('mEdgeD').className='ms '+(de>12?'bad':de<-8?'good':'');
+  }
+  document.getElementById('simTime').textContent=fmtT(simT);
+  document.getElementById('seeStat').textContent=seeing.toFixed(2)+'″';
+  // 开环 WFE
+  let oc=0,nc=0;for(let i=0;i<N*N;i++)if(pupil[i]){oc+=atmPhase[i]*atmPhase[i];nc++;}
+  document.getElementById('olStat').textContent=Math.round(Math.sqrt(oc/nc))+' nm';
+  // viewer overlay / legend
+  const titles={phase:'波前残差相位（蓝=谷，红=峰）',dm:'变形镜面形与执行器布局',
+    wfs:'夏克-哈特曼波前传感器',img:'科学目标成像（PSF）',guide:'导星相机 / 捕获窗口'};
+  document.getElementById('viewerCtx').textContent=titles[viewer]+' — '+lane.name;
+  const lg=document.getElementById('vLegend');
+  if(viewer==='phase'||viewer==='dm')lg.innerHTML=
+    `<span><span class="swatch" style="background:#4ea8ff"></span>波谷 −${PHASE_SCALE}nm</span>
+     <span><span class="swatch" style="background:#f8f9ff"></span>0</span>
+     <span><span class="swatch" style="background:#f87171"></span>波峰 +${PHASE_SCALE}nm</span>`;
+  else lg.innerHTML='';
+  // 通道卡数值
+  document.querySelectorAll('.lane').forEach((el,i)=>{
+    const mm=LANES[i]._m;if(!mm)return;
+    el.querySelector('.v.c').textContent=Math.round(mm.c);
+    el.querySelector('.v.e').textContent=Math.round(mm.e);
+    el.querySelector('.v.s').textContent=(mm.sr*100).toFixed(0)+'%';
+    el.querySelector('.lstate').className='lstate '+LANES[i].state;
+    el.querySelector('.lstate').textContent=STATE_TXT[LANES[i].state]||LANES[i].state;
+    const tr=el.querySelector('.trade');
+    const tf=LANES[i].tradeFlash;
+    if(tf&&simT-tf.t<5){
+      tr.className='trade show bad';
+      tr.textContent=`取舍 · 中心▼${Math.round(-tf.dc)} / 边缘▲${Math.round(tf.de)} nm`;
+    } else tr.className='trade';
+    const cv=el.querySelector('canvas');if(cv)drawThumb(cv,LANES[i]);
+  });
+  document.getElementById('faultCtx').textContent=
+    simT<cloudUntil?'☁ 云层遮挡中：透过率 ~12%，各通道按各自策略恢复。':
+    simT<guideLostUntil?'✦ 导星丢失中：ILS/PRED 重捕获，分区通道已切备用 LGS。':
+    Object.values(LANES[0].stuckAcks).length?'⚙ 存在失步隔离执行器，邻居执行器正在补偿。':
+    '系统正常闭环中。三通道共享同一扰动屏与测量，各自独立决策恢复。';
+  // 策略说明
+  const si=document.getElementById('stratInfo');
+  si.innerHTML=LANES.map(l=>{
+    const m=l._m;
+    return `<div style="margin-bottom:7px;padding-bottom:6px;border-bottom:1px solid var(--line)">
+      <b style="color:${l.color}">${l.name}</b> <span class="tag">${STATE_TXT[l.state]}</span>
+      <div style="color:var(--dim);margin:2px 0">${l.desc}</div>
+      <div>权重 w<sub>c</sub>=${l.wc.toFixed(2)} / w<sub>e</sub>=${l.we.toFixed(2)}
+      ${l.altGuide?' · <span class="warn">备用 LGS（等晕误差）</span>':''}
+      ${m?` · 中心 ${Math.round(m.c)}nm / 边缘 ${Math.round(m.e)}nm / Strehl ${(m.sr*100).toFixed(0)}%`:''}</div></div>`;
+  }).join('');
+}
+/* ============================================================
+ * 主渲染
+ * ============================================================ */
+function render(){
+  const r=big.parentElement.getBoundingClientRect();
+  if(big.width!==Math.round(r.width*(window.devicePixelRatio||1))){fitCanvas(big);}
+  const w=r.width,h=r.height;
+  const lane=LANES[selLane];
+  if(viewer==='phase'){drawPhaseMap(bctx,w,h,lane.res);overlayTrade(bctx,w,h,lane);}
+  else if(viewer==='dm')drawDMView(bctx,w,h,lane);
+  else if(viewer==='wfs')drawWFS(bctx,w,h,lane);
+  else if(viewer==='img')drawScience(bctx,w,h,lane._m||{sr:0,e50:.4,fwhm:.4});
+  else if(viewer==='guide')drawGuide(bctx,w,h,lane);
+  drawChart();
+  updatePanels();
+}
+/* ============================================================
+ * 事件绑定
+ * ============================================================ */
+document.querySelectorAll('.vtab[data-v]').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.vtab[data-v]').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');viewer=t.dataset.v;
+});
+document.getElementById('hfilter').addEventListener('click',e=>{
+  const t=e.target.closest('.vtab');if(!t)return;
+  document.querySelectorAll('#hfilter .vtab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');histFilter=t.dataset.f;renderHist();
+});
+document.getElementById('seeing').oninput=e=>{seeing=+e.target.value;
+  document.getElementById('seeingV').textContent=seeing.toFixed(2)+'″';};
+document.getElementById('wind').oninput=e=>{wind=+e.target.value;
+  document.getElementById('windV').textContent=wind+' m/s';};
+document.getElementById('zen').oninput=e=>{zenith=+e.target.value;
+  document.getElementById('zenV').textContent=zenith+'°';};
+document.getElementById('integ').oninput=e=>{integMs=+e.target.value;
+  document.getElementById('intV').textContent=integMs+' ms';};
+document.getElementById('wc').oninput=e=>{const l=LANES[selLane];l.wc=+e.target.value;
+  document.getElementById('wcV').textContent=l.wc.toFixed(2);};
+document.getElementById('we').oninput=e=>{const l=LANES[selLane];l.we=+e.target.value;
+  document.getElementById('weV').textContent=l.we.toFixed(2);};
+document.getElementById('wc').onchange=()=>{const _l=LANES[selLane];markTradeBase(_l);log(_l,'user',`调整中心权重 w_c=${_l.wc.toFixed(2)}`);};
+document.getElementById('we').onchange=()=>{const _l=LANES[selLane];markTradeBase(_l);log(_l,'user',`调整边缘权重 w_e=${_l.we.toFixed(2)}`);};
+document.getElementById('fCloud').onclick=injectCloud;
+document.getElementById('fStuck').onclick=injectStuck;
+document.getElementById('fLost').onclick=injectLost;
+document.getElementById('btnReset').onclick=()=>{resetSim();buildLanes();};
+document.getElementById('histClear').onclick=()=>{history.length=0;renderHist();};
+document.getElementById('btnExport').onclick=()=>{
+  const payload={exportedAt:new Date().toISOString(),simTime:simT,
+    conditions:{seeing,windSpeed:wind,zenith,integrationMs:integMs,guideStar:STARS[starIdx].name},
+    lanes:LANES.map(l=>({name:l.name,wfeSeries:l.hist,decisions:l.decisions})),
+    globalHistory:history};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='ao-decision-history.json';a.click();
+};
+big.addEventListener('click',e=>{
+  if(viewer!=='dm')return;
+  const a=dmHit(e.clientX,e.clientY);if(a<0)return;
+  if(stuckFault[a]){
+    stuckFault[a]=0;frozen[a]=0;
+    logUser(`执行器 #${a} 修复完成：解除隔离，重新纳入闭环`);
+    LANES.forEach(l=>log(l,'good',`#${a} 恢复响应，回归闭环控制`));
+  } else {
+    frozen[a]=frozen[a]?0:1;
+    logUser(frozen[a]?`手动冻结执行器 #${a}（${act[a].ax},${act[a].ay}）`:`解冻执行器 #${a}`);
+  }
+  renderFrozen();
+});
+/* 播放控制 */
+let paused=false,speed=2;
+document.getElementById('btnPause').onclick=function(){paused=!paused;
+  this.textContent=paused?'▶ 继续':'⏸ 暂停';};
+document.getElementById('speedSel').onchange=e=>{speed=+e.target.value;
+  document.getElementById('btnStep').style.display=speed===0?'':'none';};
+document.getElementById('btnStep').onclick=()=>{tick();};
+document.getElementById('btnStep').style.display='none';
+/* 主循环：rAF 驱动，按速度选择每帧 tick 数 */
+let last=performance.now(),fpsN=0,fpsT=0;
+function loop(now){
+  const dtms=now-last;last=now;
+  if(!paused){
+    if(speed>0){
+      const steps=speed>=4?2:1;
+      for(let k=0;k<steps;k++)tick();
+    }
+  }
+  render();
+  fpsN++;fpsT+=dtms;
+  if(fpsT>500){document.getElementById('fps').textContent=(fpsN*1000/fpsT).toFixed(0)+' Hz（渲染）';
+    fpsN=0;fpsT=0;}
+  requestAnimationFrame(loop);
+}
+/* 启动 */
+buildStars();buildLanes();syncWeightUI();renderFrozen();
+resetSim();
+window.addEventListener('resize',()=>fitCanvas(big));
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
